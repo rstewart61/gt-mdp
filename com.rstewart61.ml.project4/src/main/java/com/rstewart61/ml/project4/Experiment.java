@@ -1055,6 +1055,9 @@ public class Experiment {
 		DPrint.toggleUniversal(false);
 
 		String outputFolder = "/home/brandon/Dropbox/coursework/ml/project4/output/";
+		if (args.length > 0) {
+			outputFolder = args[1];
+		}
 		mkdir(outputFolder);
 
 		runLargeTrebleCross(outputFolder);
