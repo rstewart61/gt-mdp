@@ -1056,7 +1056,7 @@ public class Experiment {
 
 		String outputFolder = "/home/brandon/Dropbox/coursework/ml/project4/output/";
 		if (args.length > 0) {
-			outputFolder = args[1];
+			outputFolder = args[0];
 		}
 		mkdir(outputFolder);
 
