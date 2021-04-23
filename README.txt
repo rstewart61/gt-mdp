@@ -17,7 +17,7 @@ java -jar target/com.rstewart61.ml.project4-0.0.1-SNAPSHOT-jar-with-dependencies
 # Expect this to run for several hours, depending on your CPU.
 
 # To generate plots used for the analysis report, run:
-python3 problem3.py
+python3 problem4.py
 
 # If you have ImageMagick, plots can be glued together with:
 ./glue_plots.sh
