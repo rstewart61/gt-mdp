@@ -12,7 +12,7 @@ pip install -r requirements.txt
 # To generate raw data, run:
 cd com.rstewart61.ml.project4
 mvn package assembly:single
-java -jar target/com.rstewart61.ml.project4-0.0.1-SNAPSHOT-jar-with-dependencies.jar output
+java -Xmx18g -jar target/com.rstewart61.ml.project4-0.0.1-SNAPSHOT-jar-with-dependencies.jar output
 
 # Expect this to run for several hours, depending on your CPU.
 

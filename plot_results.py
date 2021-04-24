@@ -127,7 +127,7 @@ def find_convergence(avg_rewards_avg):
     avg_rewards_clean -= lower_limit
     upper_limit = max(avg_rewards_clean)
     avg_rewards_diff = upper_limit - avg_rewards_clean
-    convergence_index = np.argmax(avg_rewards_diff < 0.03 * upper_limit)
+    convergence_index = np.argmax(avg_rewards_diff < 0.02 * upper_limit)
     return convergence_index
 
 def read_q_learning(dirName, filepart, title, smoothing):
@@ -474,7 +474,7 @@ def plot_mdp(title, subdir, smoothing):
     if os.path.exists(data_dir + 'qlearning/Num States'):
         q_learning_convergence(data_dir + 'qlearning/Num States', 0, 'Num States', smoothing)
 
-    subdirs = ['Num States', 'Discount Factor', 'Learning Rate', 'Learning Rate Decay', 'QInit']
+    subdirs = ['Num States', 'Discount Factor', 'Learning Rate', 'Learning Rate Decay', 'QInit', 'Epsilon']
     for i in range(len(subdirs)):
         part = i
         subdir = subdirs[i]

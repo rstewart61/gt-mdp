@@ -23,7 +23,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.function.Function;
 
 import javax.imageio.ImageIO;
 import javax.swing.JFrame;
@@ -31,6 +30,7 @@ import javax.swing.SwingUtilities;
 
 import burlap.behavior.learningrate.ExponentialDecayLR;
 import burlap.behavior.learningrate.LearningRate;
+import burlap.behavior.policy.EpsilonGreedy;
 import burlap.behavior.policy.GreedyQPolicy;
 import burlap.behavior.policy.Policy;
 import burlap.behavior.singleagent.auxiliary.StateReachability;
@@ -80,7 +80,7 @@ public class Experiment {
 	HashableStateFactory hashingFactory;
 	SimulatedEnvironment env;
 	ExperimentDomain expDomain;
-	double learningRate, learningRateDecay, discountFactor, qInit;
+	double learningRate, learningRateDecay, discountFactor, qInit, qlEpsilon;
 	int trialLength;
 	String type;
 	int size;
@@ -89,7 +89,7 @@ public class Experiment {
 
 	public Experiment(ExperimentDomain expDomain, int trialLength, double discountFactor,
 			double learningRate, double learningRateDecay,
-			double qInit) {
+			double qInit, double qlEpsilon) {
 		this.expDomain = expDomain;
 		this.domain = expDomain.domain;
 		this.initialState = expDomain.initialState;
@@ -101,6 +101,7 @@ public class Experiment {
 		this.learningRateDecay = learningRateDecay;
 		this.discountFactor = discountFactor;
 		this.qInit = qInit;
+		this.qlEpsilon = qlEpsilon;
 
 		hashingFactory = new HashableStateFactory() {
 			HashableStateFactory delegate = new SimpleHashableStateFactory();
@@ -524,6 +525,7 @@ public class Experiment {
 		QLearning qLearning = new QLearning(domain, discountFactor, hashingFactory, qInit, learningRate);
 		qLearning.setLearningRateFunction(learningRateFunction);
 		qLearning.setMaxQChangeForPlanningTerminaiton(MAX_QL_DELTA);
+		qLearning.setLearningPolicy(new EpsilonGreedy(qLearning, this.qlEpsilon));
 		return qLearning;
 	}
 	
@@ -541,9 +543,9 @@ public class Experiment {
 	
 	public void experimentAndPlotter(String outputFolder) {
 		mkdir(outputFolder);
-		String fileName = outputFolder + File.separator + String.format("%d,%.4f,%.2f,%.8f,%.2f",
+		String fileName = outputFolder + File.separator + String.format("%d,%.4f,%.2f,%.8f,%.2f,%.3f",
 				this.getNumStates(), this.discountFactor,
-				this.learningRate, this.learningRateDecay, this.qInit);
+				this.learningRate, this.learningRateDecay, this.qInit, this.qlEpsilon);
 		if (new File(fileName + ".csv").exists()) {
 			System.out.println("Already created " + fileName);
 			return;
@@ -674,7 +676,7 @@ public class Experiment {
 		mkdir(config.outputFolder);
 		ExperimentDomain domain = config.factory.createDomain(config.defaultSize);
 		Experiment example = new Experiment(domain, config.trialLength, config.defaultDiscountFactor,
-				config.defaultLearningRate, config.defaultLearningRateDecay, config.defaultQInit);
+				config.defaultLearningRate, config.defaultLearningRateDecay, config.defaultQInit, config.defaultQLEpsilon);
 		QLearning qlAgent = example.getQLearning();
 		for(int i = 0; i < config.trialLength; i++){
 			qlAgent.runLearningEpisode(example.env);
@@ -783,7 +785,8 @@ public class Experiment {
 		qInit = config.defaultQInit;
 		for (int size : config.sizes) {
 			ExperimentDomain domain = config.factory.createDomain(size);
-			Experiment example = new Experiment(domain, config.trialLength, discountFactor, learningRate, learningRateDecay, qInit);
+			Experiment example = new Experiment(domain, config.trialLength, discountFactor, learningRate,
+					learningRateDecay, qInit, config.defaultQLEpsilon);
 
 			ExperimentResults vResults = example.valueIterationExample(config.outputFolder);
 			allValueResults.add(vResults);
@@ -804,7 +807,8 @@ public class Experiment {
 		for (int i = 1; i <= 19; ++i) {
 			double currDiscountFactor = 1.0 - (double) i / 20.0;
 			ExperimentDomain domain = config.factory.createDomain(config.defaultSize);
-			Experiment example = new Experiment(domain, config.trialLength, currDiscountFactor, learningRate, learningRateDecay, qInit);
+			Experiment example = new Experiment(domain, config.trialLength, currDiscountFactor,
+					learningRate, learningRateDecay, qInit, config.defaultQLEpsilon);
 
 			ExperimentResults vResults = example.valueIterationExample(config.outputFolder);
 			allValueResults.add(vResults);
@@ -818,7 +822,7 @@ public class Experiment {
 		writeIterResults(config.outputFolder + File.separator + "vi_by_discount_factor", allValueResults);
 		ExperimentResults.writeFile(config.outputFolder + "policy_by_discount_factor.csv", allPolicyResults);
 		writeIterResults(config.outputFolder + File.separator + "pi_by_discount_factor", allPolicyResults);
-
+		
 		for (Future<Void> future : futures) {
 			future.get();
 		}
@@ -845,7 +849,8 @@ public class Experiment {
 		for (int i = 1; i <= 19; ++i) {
 			double currLearningRate = 1.0 - (double) i / 20.0;
 			ExperimentDomain domain = config.factory.createDomain(config.defaultSize);
-			Experiment example = new Experiment(domain, config.trialLength, discountFactor, currLearningRate, learningRateDecay, qInit);
+			Experiment example = new Experiment(domain, config.trialLength, discountFactor, currLearningRate,
+					learningRateDecay, qInit, config.defaultQLEpsilon);
 
 			Future<Void> future = executor.submit(() -> {
 				System.out.println("Learning rate: " + currLearningRate);
@@ -867,7 +872,8 @@ public class Experiment {
 			double finalQInit = currQInit;
 
 			ExperimentDomain domain = config.factory.createDomain(config.defaultSize);
-			Experiment example = new Experiment(domain, config.trialLength, discountFactor, learningRate, learningRateDecay, currQInit);
+			Experiment example = new Experiment(domain, config.trialLength, discountFactor, learningRate,
+					learningRateDecay, currQInit, config.defaultQLEpsilon);
 
 			Future<Void> future = executor.submit(() -> {
 				System.out.println("Q-Init: " + finalQInit);
@@ -884,7 +890,8 @@ public class Experiment {
 			double currLearningRateDecay = 1.0 - Math.pow(10, -i);
 
 			ExperimentDomain domain = config.factory.createDomain(config.defaultSize);
-			Experiment example = new Experiment(domain, config.trialLength, discountFactor, learningRate, currLearningRateDecay, qInit);
+			Experiment example = new Experiment(domain, config.trialLength, discountFactor,
+					learningRate, currLearningRateDecay, qInit, config.defaultQLEpsilon);
 
 			Future<Void> future = executor.submit(() -> {
 				System.out.println("Decay Rate: " + currLearningRateDecay);
@@ -900,7 +907,8 @@ public class Experiment {
 		qInit = config.defaultQInit;
 		for (int size : config.sizes) {
 			ExperimentDomain domain = config.factory.createDomain(size);
-			Experiment example = new Experiment(domain, config.trialLength, discountFactor, learningRate, learningRateDecay, qInit);
+			Experiment example = new Experiment(domain, config.trialLength, discountFactor,
+					learningRate, learningRateDecay, qInit, config.defaultQLEpsilon);
 
 			Future<Void> future = executor.submit(() -> {
 				System.out.println("Size: " + size);
@@ -914,11 +922,31 @@ public class Experiment {
 		for (int i = 1; i <= 19; ++i) {
 			double currDiscountFactor = 1.0 - (double) i / 20.0;
 			ExperimentDomain domain = config.factory.createDomain(config.defaultSize);
-			Experiment example = new Experiment(domain, config.trialLength, currDiscountFactor, learningRate, learningRateDecay, qInit);
+			Experiment example = new Experiment(domain, config.trialLength, currDiscountFactor,
+					learningRate, learningRateDecay, qInit, config.defaultQLEpsilon);
 
 			Future<Void> future = executor.submit(() -> {
 				System.out.println("Discount factor: " + currDiscountFactor);
 				example.experimentAndPlotter(config.outputFolder + "qlearning/Discount Factor");
+				return null;
+			});
+			futures.add(future);
+		}
+		
+		// Default size, vary epsilon
+		for (int i = 1; i <= 20; ++i) {
+			double divisor = 200.0;
+			if (config.outputFolder.contains("gridworld")) {
+				divisor = 400;
+			}
+			double currEpsilon = (double) i / divisor;
+			ExperimentDomain domain = config.factory.createDomain(config.defaultSize);
+			Experiment example = new Experiment(domain, config.trialLength, config.defaultDiscountFactor,
+					learningRate, learningRateDecay, qInit, currEpsilon);
+
+			Future<Void> future = executor.submit(() -> {
+				System.out.println("Epsilon: " + currEpsilon);
+				example.experimentAndPlotter(config.outputFolder + "qlearning/Epsilon");
 				return null;
 			});
 			futures.add(future);
@@ -945,6 +973,7 @@ public class Experiment {
 		double defaultLearningRate;
 		double defaultLearningRateDecay;
 		double defaultQInit;
+		double defaultQLEpsilon;
 	}
 	
 	private static boolean RUN_VIZ = true;
@@ -959,10 +988,11 @@ public class Experiment {
 		List<Integer> sizes = Arrays.asList(15, 20, 25, 30);
 		config.sizes = sizes;
 		config.defaultSize = 15;
-		config.defaultDiscountFactor = 0.5;
+		config.defaultDiscountFactor = 0.2;
 		config.defaultLearningRate = 1.0;
 		config.defaultLearningRateDecay = 0.99999;
-		config.defaultQInit = 0.3;
+		config.defaultQInit = -0.5;
+		config.defaultQLEpsilon = 0.01;
 		// Default discount factor was 0.99 for gridworld
 		// Default learning rate was 0.1 for gridworld - this doesn't converge well. Use 0.5 or 1.0
 		if (RUN_PLANNING) runPlanningExperiments(config);
@@ -996,6 +1026,7 @@ public class Experiment {
 		config.defaultLearningRate = 1.0;
 		config.defaultLearningRateDecay = 0.99999;
 		config.defaultQInit = -5.5;
+		config.defaultQLEpsilon = 0.01;
 		
 		if (RUN_PLANNING) runPlanningExperiments(config);
 		if (RUN_QL) runQLearningExperiments(config);
@@ -1010,10 +1041,12 @@ public class Experiment {
 		List<Integer> sizes = Arrays.asList(7, 9, 11, 13);
 		config.sizes = sizes;
 		config.defaultSize = 7;
-		config.defaultDiscountFactor = 0.7;
+		config.defaultDiscountFactor = 0.425;
 		config.defaultLearningRate = 1.0;
 		config.defaultLearningRateDecay = 0.999;
 		config.defaultQInit = 0.2;
+		config.defaultQLEpsilon = 0.1;
+
 		if (RUN_PLANNING) runPlanningExperiments(config);
 		if (RUN_QL) runQLearningExperiments(config);
 		if (RUN_VIZ) visualize(config);
@@ -1037,14 +1070,15 @@ public class Experiment {
 		ExperimentConfig config = new ExperimentConfig();
 		config.outputFolder = outputFolder + "treblecross_big/";
 		config.factory = (size) -> createTrebleCrossDomain(size);
-		config.trialLength = 200000;
+		config.trialLength = 15000;
 		List<Integer> sizes = Arrays.asList();
 		config.sizes = sizes;
 		config.defaultSize = 13;
 		config.defaultDiscountFactor = 0.99;
-		config.defaultLearningRate = 1.0;
+		config.defaultLearningRate = 0.6;
 		config.defaultLearningRateDecay = 0.99999;
 		config.defaultQInit = 0.0;
+		config.defaultQLEpsilon = 0.1;
 		
 		if (RUN_PLANNING) runPlanningExperiments(config);
 		if (RUN_QL) runQLearningExperiments(config);
