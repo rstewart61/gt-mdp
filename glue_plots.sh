@@ -1,5 +1,7 @@
 #!/bin/bash
 
+mkdir -f report
+
 GW_SMALL=output/gridworld_small
 GW_BIG=output/gridworld_big
 TC_SMALL=output/treblecross_small
